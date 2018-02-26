@@ -1,0 +1,204 @@
+---
+title: "Assignment4"
+author: "Junpei Xiao"
+date: "2018-2-20"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=F, message=F}
+library("tidyverse")
+```
+
+
+### 10.5 Exercise
+
+###1 How can you tell if an object is a tibber? (Hint: try printing mtcars, which is a regular data frame).
+
+```{r}
+tb <- as_tibble(mtcars)
+print(tb)
+
+##tibble never changes the type of the inputs such as it never change strings to factors!), and it never changes the names of variables, it only recycles inputs of length 1, and it never creates row.names().
+
+### tibble 
+```
+
+
+
+
+###2 Compare and contrast the following operations on a data.frame and equivalent tibble. What is different? Why might the default data frame behaviours cause you frustration?
+
+
+```{r}
+df <- data.frame(abc = 1, xyz = "a")   
+
+df$x   
+
+class(df[,"xyz"])   ### return a factor
+
+class(df[, c("abc", "xyz")]) ### return a data.frame
+
+tb_df <- as_tibble(df)
+### tb_df$x             ### warning Unknown or uninitialised column: 'x'.NULL
+
+class(tb_df[, "xyz"])   ### return a tibber
+
+class(tb_df[, c("abc", "xyz")]) ### return a tibber
+
+```
+
+###3 If you have the name of a variable stored in an object, e.g. var <- "mpg", how can you extract the reference variable from a tibble?
+
+```{r}
+tb_cars <- as_tibble(mtcars)
+var <- "mpg"
+tb_cars[var]
+
+```
+
+###4 Practice referring to non-syntactic names in the following data frame by:
+
+```{r}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+```
+
+### 1. Extracting the variable called 1.
+
+```{r}
+annoying$"1"
+
+```
+### 2 Plotting a scatterplot of 1 vs 2.
+
+```{r}
+ggplot(annoying, aes(x = `1`, y = `2`)) + geom_point()
+```
+
+### 3 Creating a new column called 3 which is 2 divided by 1.
+
+```{r}
+annoying <-annoying %>%mutate(`3` = `2`/`1`)
+```
+
+### 4 Renaming the columns to one, two and three.
+
+```{r}
+annoying %>%rename(one = `1`,two = `2`,three = `3`)
+```
+
+### 5 What does tibble::enframe() do? When might you use it?
+
+```{r}
+sample <- letters[1:10]
+enframe(sample)
+
+
+### convert vectors to data frames, and vice versa.
+
+```
+### 6 What option controls how many additional column names are printed at the footer of a tibble?
+
+```{r} 
+### tibble.max_extra_cols
+### Number of extra columns printed in reduced form. Default: 100.
+
+```
+
+### 12.6.1 Exercises
+
+
+```{r}
+
+### This part code copied from 12.6 Case study, becasue it is needed by exercise
+
+who1 <- who %>%
+gather(new_sp_m014:newrel_f65, key = "key", value = "cases", na.rm = TRUE)
+glimpse(who1)
+
+who2 <- who1 %>%
+mutate(key = stringr::str_replace(key, "newrel", "new_rel"))
+ 
+who3 <- who2 %>%
+separate(key, c("new", "type", "sexage"), sep = "_")
+who3
+
+who3 %>%
+count(new)
+  
+who4 <- who3 %>%
+select(-new, -iso2, -iso3)
+  
+who5 <- who4 %>%
+separate(sexage, c("sex", "age"), sep = 1)
+who5
+  
+```
+
+### 1. In this case study I set na.rm = TRUE just to make it easier to check that we had the correct values. Is this reasonable? Think about how missing values are represented in this dataset. Are there implicit missing values? What??s the difference between an NA and zero?
+
+```{r}
+who %>%
+group_by(country) %>%
+summarize(year_min = min(year), year_max = max(year)) %>%
+ggplot() +
+geom_point(mapping = aes(x = country, y = year_min), color = 'red') +
+geom_point(mapping = aes(x = country , y= year_max), color = 'blue') +
+coord_flip()
+
+### From the plot we can see there are some implicit missing values
+
+### Cheack zero and NA.
+sum(who %>% select(-c(1:4)) == 0, na.rm = TRUE)
+
+who %>% select(-c(1:4)) %>%sapply(function(x){sum(is.na(x))})
+
+### Zero simply means no case, and NA means missing values
+
+```
+
+### 2. What happens if you neglect the mutate() step? (mutate(key = stringr::str_replace(key, "newrel", "new_rel")))
+
+```{r}
+### The code will not be separated correctly into the three columns sexage,new,var.
+
+```
+
+### 3.I claimed that iso2 and iso3 were redundant with country. Confirm this claim.
+
+```{r}
+
+### Check unique values in country,iso2,iso3
+who %>% select(1:3) %>% sapply(function(x){length(unique(x))})
+
+### check the unique combination of these three columns
+who %>% select(1:3) %>%
+  unite(combined, 1:3) %>%
+  select(combined) %>%
+  distinct() %>%
+  nrow()
+
+```
+### 4.For each country, year, and sex compute the total number of cases of TB. Make an informative visualisation of the data
+
+```{r}
+who %>%
+  gather(code, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(code = stringr::str_replace(code, "newrel", "new_rel")) %>%
+  separate(code, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1) %>%
+  group_by(country, year, sex) %>%
+  summarize(total_case = sum(value)) %>%
+  unite(country_sex, country, sex, remove = FALSE) %>%
+  ggplot() +
+  geom_line(mapping = aes(x = year, y = total_case, color = sex,
+                          group = country_sex))
+
+```
